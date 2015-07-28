@@ -275,6 +275,22 @@ func createLibcontainerConfig(cgroupName string, spec *specs.LinuxSpec) (*config
 	for _, m := range spec.Mounts {
 		config.Mounts = append(config.Mounts, createLibcontainerMount(cwd, m))
 	}
+	for _, cmd := range spec.Hooks.Prestart {
+		c := configs.Command{
+			Path: cmd.Path,
+			Args: cmd.Args,
+			Env:  cmd.Env,
+		}
+		config.Prestart = append(config.Prestart, c)
+	}
+	for _, cmd := range spec.Hooks.Poststop {
+		c := configs.Command{
+			Path: cmd.Path,
+			Args: cmd.Args,
+			Env:  cmd.Env,
+		}
+		config.Poststop = append(config.Poststop, c)
+	}
 	if err := createDevices(spec, config); err != nil {
 		return nil, err
 	}
