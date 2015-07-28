@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/system"
 )
 
@@ -163,6 +164,8 @@ type initProcess struct {
 	manager    cgroups.Manager
 	container  *linuxContainer
 	fds        []string
+	prestart   []configs.Command
+	poststop   []configs.Command
 }
 
 func (p *initProcess) pid() int {
@@ -203,6 +206,17 @@ func (p *initProcess) start() (err error) {
 	if err := p.createNetworkInterfaces(); err != nil {
 		return newSystemError(err)
 	}
+
+	p.container.updateState(p)
+
+	// Call the prestart hooks
+	statePath := p.container.stateFilePath()
+	for _, prestartcmd := range p.prestart {
+		if err := runCmd(prestartcmd, statePath); err != nil {
+			return newSystemError(err)
+		}
+	}
+
 	if err := p.sendConfig(); err != nil {
 		return newSystemError(err)
 	}
@@ -227,6 +241,15 @@ func (p *initProcess) wait() (*os.ProcessState, error) {
 	if p.cmd.SysProcAttr.Cloneflags&syscall.CLONE_NEWPID == 0 {
 		killCgroupProcesses(p.manager)
 	}
+
+	// Call the poststop hooks
+	statePath := p.container.stateFilePath()
+	for _, poststopcmd := range p.poststop {
+		if err := runCmd(poststopcmd, statePath); err != nil {
+			return nil, newSystemError(err)
+		}
+	}
+
 	return p.cmd.ProcessState, nil
 }
 
@@ -267,6 +290,27 @@ func (p *initProcess) createNetworkInterfaces() error {
 			return err
 		}
 		p.config.Networks = append(p.config.Networks, n)
+	}
+	return nil
+}
+
+func runCmd(command configs.Command, statePath string) error {
+	cmd := exec.Command(command.Path, command.Args[:]...)
+	cmd.Env = command.Env
+	cmd.Dir = command.Dir
+
+	stateFile, err := os.Open(statePath)
+	if err != nil {
+		return err
+	}
+	defer stateFile.Close()
+
+	cmd.Stdin = stateFile
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	if err := cmd.Wait(); err != nil {
+		return err
 	}
 	return nil
 }

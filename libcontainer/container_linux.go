@@ -184,7 +184,10 @@ func (c *linuxContainer) newInitProcess(p *Process, cmd *exec.Cmd, parentPipe, c
 		childPipe:  childPipe,
 		parentPipe: parentPipe,
 		manager:    c.cgroupManager,
+		container:  c,
 		config:     c.newInitConfig(p),
+		prestart:   c.config.Prestart,
+		poststop:   c.config.Poststop,
 	}, nil
 }
 
@@ -773,6 +776,10 @@ func (c *linuxContainer) updateState(process parentProcess) error {
 	defer f.Close()
 	os.Remove(filepath.Join(c.root, "checkpoint"))
 	return json.NewEncoder(f).Encode(state)
+}
+
+func (c *linuxContainer) stateFilePath() string {
+	return filepath.Join(c.root, stateFilename)
 }
 
 func (c *linuxContainer) currentStatus() (Status, error) {
