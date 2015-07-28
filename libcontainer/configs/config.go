@@ -159,4 +159,11 @@ type Config struct {
 	// A number of rules are given, each having an action to be taken if a syscall matches it.
 	// A default action to be taken if no rules match is also given.
 	Seccomp *Seccomp `json:"seccomp"`
+
+	// Prestart commands are executed after the container namespaces are created,
+	// but before the user supplied command is executed from init.
+	Prestart []Command `json:"prestart"`
+
+	// PostStop commands are executed after the container init process exits.
+	Poststop []Command `json:"poststop"`
 }
