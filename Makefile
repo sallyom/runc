@@ -3,8 +3,11 @@ PROJECT=github.com/opencontainers/runc
 TEST_DOCKERFILE=script/test_Dockerfile
 export GOPATH:=$(CURDIR)/Godeps/_workspace:$(GOPATH)
 
-all:
+all: regmach
 	go build -o runc .
+ 
+regmach:
+	go build -o regmach register/register.go
 
 vet:
 	go get golang.org/x/tools/cmd/vet

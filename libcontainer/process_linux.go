@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/system"
@@ -234,20 +235,20 @@ func (p *initProcess) start() (err error) {
 
 func (p *initProcess) wait() (*os.ProcessState, error) {
 	err := p.cmd.Wait()
-	if err != nil {
-		return p.cmd.ProcessState, err
-	}
-	// we should kill all processes in cgroup when init is died if we use host PID namespace
-	if p.cmd.SysProcAttr.Cloneflags&syscall.CLONE_NEWPID == 0 {
-		killCgroupProcesses(p.manager)
-	}
 
 	// Call the poststop hooks
 	statePath := p.container.stateFilePath()
 	for _, poststopcmd := range p.poststop {
 		if err := runCmd(poststopcmd, statePath); err != nil {
-			return nil, newSystemError(err)
+			logrus.Infof("Failed to run post stop command %s with error: %s", poststopcmd.Path, err)
 		}
+	}
+	if err != nil {
+		return p.cmd.ProcessState, nil
+	}
+	// we should kill all processes in cgroup when init is died if we use host PID namespace
+	if p.cmd.SysProcAttr.Cloneflags&syscall.CLONE_NEWPID == 0 {
+		killCgroupProcesses(p.manager)
 	}
 
 	return p.cmd.ProcessState, nil
