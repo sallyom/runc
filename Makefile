@@ -4,8 +4,11 @@ TEST_DOCKERFILE=script/test_Dockerfile
 BUILDTAGS=seccomp
 export GOPATH:=$(CURDIR)/Godeps/_workspace:$(GOPATH)
 
-all:
+all: hook
 	go build -tags "$(BUILDTAGS)" -o runc .
+
+hook: containerHooks/containerHooks.go
+	go build -o hook containerHooks/containerHooks.go
 
 vet:
 	go get golang.org/x/tools/cmd/vet
